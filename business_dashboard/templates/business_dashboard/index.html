@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Nuro Business Dashboard</title>
+	<meta charset='utf-8' />
+
+	<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+
+	<link rel='stylesheet' href='https://npmcdn.com/leaflet@1.0.0-rc.3/dist/leaflet.css' />
+    <script src='//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js'></script>
+    <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css' integrity='sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u' crossorigin='anonymous'>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+
+    <style>
+        body {
+            margin: 0px;
+            border: 0px;
+            padding: 0px;
+            background: #333;
+        }
+
+        #map_div {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id='map_container'>
+        <div id='map_div' style='width:90%; z-index:1; position:absolute; left: 0px; top: 0px'></div>
+    </div>
+    <div id='status' style='z-index:10; white-space: pre; display: inline-block; position:absolute; left: 5px; bottom: 5px; color:white; background:black; font-size: 22px; margin-top: 5px; margin-left: 5px; '> Help: Select a mode on the right bar </div>
+
+    <div id='toolbar' style='width:9%; float:right'>
+
+        <div class='dropdown'>
+        <button class="btn btn-secondary dropdown-toggle" style=' margin-top:20px' type="button" data-toggle="dropdown">
+            Display
+            <span class="caret"></span>
+        </button>
+
+        <ul class="dropdown-menu dropdown-menu-right">
+            <li><a href='#' onclick='load_background("nuro");'> Nuro </a></li>
+            <li><a href='#' onclick='load_background("osm");'> OSM </a></li>
+            <li><a href='#' onclick='load_background("nuro_osm");'> Nuro+OSM </a></li>
+        </ul>
+        </div>
+
+        <!--
+        <div class='dropdown'>
+        <button class="btn btn-secondary dropdown-toggle" style=' margin-top:20px' type="button" data-toggle="dropdown">
+            Speed threshold
+            <span class="caret"></span>
+        </button>
+
+        <ul class="dropdown-menu dropdown-menu-right">
+            <li><a href='#' onclick='set_speed_threshold(0);'> <= 25 mph </a></li>
+            <li><a href='#' onclick='set_speed_threshold(1);'> <= 35 mph </a></li>
+            <li><a href='#' onclick='set_speed_threshold(-1);'> all speeds </a></li>
+        </ul>
+        </div>
+        -->
+
+    </div>
+
+    <script>L_PREFER_CANVAS = true;</script>
+    <script src='https://npmcdn.com/leaflet@1.0.0-rc.3/dist/leaflet.js'></script>
+    <script src='https://mapzen.com/tangram/0.8/tangram.min.js'></script>
+
+    <script type='text/javascript' src='https://www.google.com/jsapi'></script>
+
+    <script src='/static/js/smooth.js'></script>
+    <script src='/static/js/PolylineDecorator/leaflet.polylineDecorator.js'></script>
+    <!--<script src='/static/js/business_data.js'></script>-->
+    <!--<script src='/static/js/roads_by_speed_limit.js'></script> -->
+    <script src='/static/js/robot_logs.js'></script>
+
+	<script>
+        var max_business_display_num = 20000;
+        var business_speed_threshold = -1;
+        //var business_bounds = [37.36, -122.1, 37.4, -122.03];
+        var business_bounds = [37.36, -122.16, 37.43, -122.02];
+        var mode = 'startup';
+        var boundary_type = 'none';
+        var boundary_side = 'none';
+        var sub_mode = 'none';
+        var ref_lat = 'none';
+        var ref_lng = 'none';
+        var wp_disp = {};
+        var ss_disp = {};
+        var polygon_displays = [];
+        var add_queue_data = [];
+        var delete_queue_data = [];
+        var move_queue_data = [];
+        var last_move_point = [];
+        var is_loading = false;
+        var business_data = [];
+        var roads_by_speed_limit = [];
+        L.RotatedMarker = L.Marker.extend({
+          options: { angle: 0 },
+          _setPos: function (pos) {
+              L.Marker.prototype._setPos.call(this, pos);
+              if (L.DomUtil.TRANSFORM) {
+                  this._icon.style[L.DomUtil.TRANSFORM] +=
+                      ' rotate(' + this.options.angle + 'deg)';
+              }
+          }});
+          L.rotatedMarker = function (pos, options) {
+          return new L.RotatedMarker(pos, options);
+        };
+
+        var stopSignIcon = L.icon({
+            iconUrl: '/static/images/stop_sign.png',
+            iconSize: [30, 5],
+        });
+
+        var wayline_displays = [];
+        var wayline_decorators = [];
+        /*
+        var wayline_dec_styles = [
+            {offset: 0, repeat: 400, symbol: L.Symbol.arrowHead({pixelSize: 8, pathOptions: {fillOpacity: 0.5, weight: 0}})},
+            {offset: 0, repeat: 200, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'purple'}})},
+            {offset: 0, repeat: 200, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'yellow'}})},
+            {offset: 0, repeat: 200, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'white'}})},
+            {offset: 0, repeat: 200, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'black'}})},
+            {offset: 0, repeat: 100, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'green'}})},
+            {offset: 0, repeat: 100, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'pink'}})},
+        ];
+        */
+
+        var wayline_styles = [
+            {opacity: 1},
+            {opacity: 1, color: 'gray'},
+            {opacity: 1, color: 'green'},
+            {opacity: 1, color: 'yellow'},
+            {opactiy: 1, color: 'orange'},
+            {opactiy: 1, color: 'red'},
+            {opacity: 1, color: 'pink', weight: 10},
+            {opacity: 1, color: 'purple', weight: 10},
+        ]
+
+        var polygon_styles = [
+            {color: 'blue'},
+            {color: 'white'},
+        ]
+
+        var selected_ind = -1;
+        var all_button_names = ['#manual_button', '#traffic_button', '#find_path_button', '#delete_button', '#make_lane_button', '#join_lane_button', '#boundary_button', '#feature_info_button', '#assoc_button', '#fast_add_button', '#fast_delete_button', '#fast_move_button'];
+        var last_data = {};
+        var last_zoom = 0;
+        var drawn_once = false;
+
+        //var map_start_latlng = [37.399653, -122.060788];
+        var map_start_latlng = [37.37901, -122.07188];
+		var map = L.map('map_div').setView(map_start_latlng, 14);
+
+        var background_layer = Tangram.leafletLayer({
+           //scene: '/static/nuro_osm.yaml',
+           scene: '/static/osm.yaml',
+           events: {
+              //click: function(selection) { console.log('Click!', selection); }
+           }
+        });
+        background_layer.addTo(map);
+
+        function set_speed_threhsold(thresh) {
+            business_speed_threshold = thresh;
+            new_draw_stuff();
+        }
+
+        function load_background(bg_name) {
+            map.removeLayer(background_layer);
+            background_layer = Tangram.leafletLayer({
+               scene: '/static/' + bg_name + '.yaml'
+            });
+            background_layer.addTo(map);
+        }
+
+
+        on_click({'pageX': $(window).width()/2, 'pageY':0});
+
+        function send_restore_request(filename) {
+            $.ajax({
+                type: 'POST',
+                url: '/',
+                data: {'mode': 'restore_state', 'filename': filename},
+                dataType: 'JSON',
+            }).done(function() {
+                location.reload();
+            });
+        }
+
+        function gray_all_buttons() {
+            for (var i = 0; i<all_button_names.length; i++) {
+                var other = all_button_names[i];
+                $(other).removeClass('btn btn-primary');
+                $(other).addClass('btn btn-secondary');
+            }
+        }
+
+        function on_button_click(target, new_mode) {
+            if (!is_loading) {
+                gray_all_buttons();
+                $(target).removeClass('btn btn-secondary');
+                $(target).addClass('btn btn-primary');
+                mode = new_mode;
+                update_status();
+            }
+        }
+
+        function set_boundary_mode(b) {
+            gray_all_buttons();
+            $('#boundary_button').removeClass('btn btn-secondary');
+            $('#boundary_button').addClass('btn btn-primary');
+            boundary_type = b;
+            mode = 'make_boundary';
+            update_status();
+        }
+
+        function set_traffic_mode(new_mode, new_sub_mode) {
+            gray_all_buttons();
+            $('#traffic_button').removeClass('btn btn-secondary');
+            $('#traffic_button').addClass('btn btn-primary');
+            mode = new_mode;
+            sub_mode = new_sub_mode;
+            update_status();
+        }
+
+        function set_assoc_mode(new_mode) {
+            gray_all_buttons();
+            var target = '#assoc_button';
+            $(target).removeClass('btn btn-secondary');
+            $(target).addClass('btn btn-primary');
+            sub_mode = new_mode;
+            mode = 'assoc';
+            update_status();
+        }
+
+        function data_to_waypoints(data) {
+            var waypoints = {
+                'type': 'FeatureCollection',
+                'features': []
+            }
+            for (var i = 0; i<data.length; i++) {
+                waypoints.features.push({
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [
+                            data[i][1], data[i][0]
+                        ]
+                    },
+                    'properties': {
+                        //'selected': (data[i][2] == 1),
+                        'point_type': data[i][2],
+                        'angle': data[i][3],
+                    },
+                    'id': i
+                });
+            }
+
+            return waypoints;
+        }
+
+        function data_to_splines(components) {
+
+            zoom = map._zoom;
+            var points_set = []
+            for (var set_ind = 0; set_ind < components.length; set_ind++) {
+                points = [];
+                spline_set = components[set_ind];
+                for (var i = 0; i<spline_set.length; i++) {
+                    points.push(spline_set[i]);
+                }
+                points_set.push(points);
+            }
+
+            return points_set;
+        }
+
+        function update_status() {
+            var text = '';
+            if (mode == 'add') { text = 'add waypoint'; }
+            else if (mode == 'fast_add') { text = 'press q to add your creation to database'; }
+            else if (mode == 'fast_delete') { text = 'press q to delete your set of points'; }
+            else if (mode == 'fast_move') { text = 'click on points and where you want to move them. Press q to move your set of points'; }
+            else if (mode == 'connect') { text = 'connect 2 waypoints'; }
+            else if (mode == 'delete') { text = 'delete one thing (lane/line/point)'; }
+            else if (mode == 'find_path') { text = 'find shortest path'; }
+            else if (mode == 'join_lane') {
+                text = 'make sure the centers of the lanes are connected by lines first';
+            }
+            else if (mode == 'make_lane') { text = 'Choose the middle of the lane'; }
+            else if (mode == 'make_boundary') { text = 'Make a boundary'; }
+            else if (mode == 'feature_info') { text = 'Click on a feature to get info'; }
+            else if (mode == 'assoc') {
+                if (sub_mode == 'left_boundary' || sub_mode == 'right_boundary') {
+                    text = 'Choose lane, then boundary';
+                }
+            }
+            else { text = 'should be self-explanatory. If not, ask Jeff.'; }
+            $('#status').text(' Help: ' + text + ' ');
+            is_loading = false;
+        }
+
+        function loading_status() {
+            $('#status').text(' Please wait... ');
+            is_loading = true;
+        }
+
+        function new_draw_stuff(data) {
+            last_data = data;
+            do_draw_stuff(false);
+        }
+
+        function in_range(point, latlng_range) {
+            return point[0] > latlng_range[0] && point[0] < latlng_range[1] && point[1] > latlng_range[2] && point[1] < latlng_range[3];
+        }
+
+        function speed_limit_to_point_type(speed_str) {
+            switch(speed_str) {
+                case '5 mph': return 0;
+                case '10 mph': return 0;
+                case '15 mph': return 0;
+                case '20 mph': return 0;
+                case '25 mph': return 0;
+                case '30 mph': return 1;
+                case '35 mph': return 1;
+                case '40 mph': return 2;
+                case '45 mph': return 2;
+                default: return 3;
+            }
+        }
+
+        function business_data_points_and_lines(latlng_range) {
+            var points = [];
+            var lines = [];
+            for (var i = 0; i < business_data.length; ++i) {
+                bd = business_data[i];
+                if (in_range([bd[1], bd[2]], latlng_range) && in_range([bd[3], bd[4]], latlng_range)) {
+                    points.push([bd[1], bd[2], speed_limit_to_point_type(bd[5]), 0]);
+                    points.push([bd[3], bd[4], -2, 0]);
+                    lines.push([[bd[1], bd[2]], [bd[3], bd[4]]]);
+                }
+                if (points.length > max_business_display_num) {
+                    break;
+                }
+            }
+            return [points, [lines]];
+        }
+
+
+        function do_draw_stuff(lazy) {
+            if (lazy && Math.abs(map._zoom - last_zoom) < 1) { return; }
+            last_zoom = map._zoom;
+            data = last_data;
+            map.removeLayer(wp_disp);
+            map.removeLayer(ss_disp);
+            //waypoints = data_to_waypoints(data.points);
+
+            var mb = map.getBounds();
+            var min_lat = Math.max(mb._southWest.lat, business_bounds[0]);
+            var min_lng = Math.max(mb._southWest.lng, business_bounds[1]);
+            var max_lat = Math.min(mb._northEast.lat, business_bounds[2]);
+            var max_lng = Math.min(mb._northEast.lng, business_bounds[3]);
+            var latlng_range = [min_lat, max_lat, min_lng, max_lng];
+
+            var points_and_lines = business_data_points_and_lines(latlng_range);
+            var points = points_and_lines[0];
+            var lines = points_and_lines[1];
+
+            waypoints = data_to_waypoints(points);
+            //stop_signs = data_to_waypoints(data.stop_signs);
+
+            //wayline_data = data_to_splines(data.components);
+            wayline_data = data_to_splines(lines);
+            wayline_data = wayline_data.concat(roads_by_speed_limit);
+            // wayline_data = wayline_data.concat(robot_logs);
+
+            selected_ind = -1;
+            /*
+            for (var i = 0; i<data.points.length; i++) {
+                if (data.points[i][2]) {
+                    selected_ind = i;
+                }
+            }
+
+            ss_disp = L.geoJson(stop_signs, {
+                style: function (feature) {
+                    return feature.properties && feature.properties.style;
+                },
+
+                pointToLayer: function (feature, latlng) {
+                    return L.rotatedMarker(latlng, {
+                        icon: stopSignIcon,
+                        angle: feature.properties.angle,
+                    });
+                }
+            });
+            ss_disp.addTo(map);
+            */
+
+            var min_lat = business_bounds[0];
+            var min_lng = business_bounds[1];
+            var max_lat = business_bounds[2];
+            var max_lng = business_bounds[3];
+
+            polygons = [[[min_lat, min_lng], [min_lat, max_lng], [max_lat, max_lng], [max_lat, min_lng]]];
+            for (var i = 0; i < polygons.length; ++i) {
+                if (drawn_once) {
+                    map.removeLayer(polygon_displays[i]);
+                }
+                polygon_displays[i] = L.polygon(polygons[i], polygon_styles[i]);
+                polygon_displays[i].addTo(map);
+            }
+
+            wp_disp = L.geoJson(waypoints, {
+                style: function (feature) {
+                    return feature.properties && feature.properties.style;
+                },
+
+                pointToLayer: function (feature, latlng) {
+                    if (feature.properties.point_type == 0) {
+                        fill = 'green';
+                        rad = 6;
+                    } else if (feature.properties.point_type == 1) {
+                        fill = 'yellow';
+                        rad = 6;
+                    } else if (feature.properties.point_type == 2) {
+                        fill = 'orange';
+                        rad = 6;
+                    } else if (feature.properties.point_type == 3) {
+                        fill = 'red';
+                        rad = 6;
+                    } else {
+                        fill = 'purple';
+                        rad = 4;
+                    }
+                    return L.circleMarker(latlng, {
+                        radius: rad,
+                        color: '#000',
+                        fillColor: fill,
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    });
+                }
+            });
+            wp_disp.addTo(map);
+
+            for (var i = 0; i<wayline_data.length; i++) {
+                if (wayline_data[i].length == 0) {
+                    continue;
+                }
+
+                if (drawn_once) {
+                    try {
+                        map.removeLayer(wayline_displays[i]);
+                    } catch (err) {
+                    }
+                    /*
+                    try {
+                        map.removeLayer(wayline_decorators[i]);
+                    } catch (err) {
+                    }
+                    */
+                }
+                wayline_displays[i] = L.polyline(wayline_data[i], wayline_styles[i]);
+                wayline_displays[i].addTo(map);
+
+                /*
+                wl_style = wayline_dec_styles[i];
+                new_repeat = wl_style.repeat;
+                wl_style = {offset: wl_style.offset, repeat: new_repeat,
+                    symbol: wl_style.symbol};
+                //wl_style = Object.create(wayline_dec_styles[i]);
+                //wl_style.repeat = wl_style.repeat * Math.pow(2, zoom-17);
+                //wl_style.symbol = wl_style.symbol;
+                //wl_style.offset = wl_style.offset;
+                wayline_decorators[i] = L.polylineDecorator(wayline_displays[i], {
+                    patterns: [wl_style]
+                });
+                wayline_decorators[i].addTo(map);
+                */
+            }
+
+            drawn_once = true;
+        }
+
+        function euclidean_dist(a,b) {
+            return (a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]);
+        }
+
+        function on_click(e) {
+            var window_width = $(window).width()
+            if (e.pageX > window_width*0.9 || e.pageX < window_width * 0.05) {
+                return;
+            }
+            var new_xy = [e.pageX, e.pageY];
+            var latlng = map.containerPointToLatLng(new_xy);
+            console.log(latlng);
+            var dist_sensitivity = 500;
+
+            if (mode == 'stop_sign' && sub_mode == 'loc') {
+                ref_lat = latlng.lat;
+                ref_lng = latlng.lng;
+                data.stop_signs.push([ref_lat, ref_lng, 0, 0]);
+                new_draw_stuff(data);
+                sub_mode = 'angle';
+                return;
+            }
+
+            if (mode == 'fast_add') {
+                if (add_queue_data.length > 0) {
+                    last_latlng = add_queue_data[add_queue_data.length-1];
+                    data.components[0].push([[last_latlng[0], last_latlng[1]],
+                        [latlng.lat, latlng.lng]]);
+                }
+
+                for (var i = 0; i < add_queue_data.length; ++i) {
+                    var old_xy = map.latLngToContainerPoint(add_queue_data[i]);
+                    if (euclidean_dist([old_xy.x, old_xy.y], new_xy) < dist_sensitivity) {
+                        add_queue_data.push(add_queue_data[i]);
+                        finish_fast_add();
+                        return;
+                    }
+                }
+
+                add_queue_data.push([latlng.lat, latlng.lng]);
+                data.points.push([latlng.lat, latlng.lng, 1]);
+                new_draw_stuff(data);
+                data.points[data.points.length-1][2] = 0;
+                return;
+            }
+
+            if (mode == 'fast_delete') {
+                for (var i = 0; i < data.points.length; ++i) {
+                    var old_xy = map.latLngToContainerPoint(
+                        [data.points[i][0], data.points[i][1]]);
+                    if (euclidean_dist([old_xy.x, old_xy.y], new_xy) < dist_sensitivity) {
+                        if (data.points[i][2] != 1)
+                            delete_queue_data.push([data.points[i][0], data.points[i][1]]);
+                        data.points[i][2] = 1;
+                    }
+                }
+                new_draw_stuff(data);
+                return;
+            }
+
+            if (mode == 'fast_move') {
+                if (last_move_point.length == 0) {
+                    for (var i = 0; i < data.points.length; ++i) {
+                        var old_xy = map.latLngToContainerPoint(
+                            [data.points[i][0], data.points[i][1]]);
+                        if (euclidean_dist([old_xy.x, old_xy.y], new_xy) < dist_sensitivity) {
+                            if (data.points[i][2] != 1)
+                                delete_queue_data.push([data.points[i][0], data.points[i][1]]);
+                            data.points[i][2] = 1;
+                            last_move_point = [data.points[i][0], data.points[i][1]];
+                            break;
+                        }
+                    }
+                } else {
+                    move_queue_data.push([last_move_point, [latlng.lat, latlng.lng]]);
+                    last_move_point = [];
+                }
+                new_draw_stuff(data);
+                return;
+            }
+
+            mb = map.getBounds();
+            lat_range = mb._northEast.lat - mb._southWest.lat;
+            lng_range = mb._northEast.lng - mb._southWest.lng;
+            post_data = {'lat': latlng.lat, 'lng': latlng.lng,
+                    'ref_lat': ref_lat, 'ref_lng': ref_lng,
+                    'lat_range': lat_range, 'lng_range': lng_range,
+                    'selected_ind': selected_ind, 'mode': mode, 'sub_mode': sub_mode,
+                    'boundary_type': boundary_type, 'boundary_side': boundary_side };
+
+            $.ajax({
+                type: 'POST',
+                url: '',
+                data: post_data,
+                dataType: 'JSON',
+            }).done(function(data) {
+                if (mode == 'stop_sign') sub_mode = 'loc';
+                new_draw_stuff(data);
+                if (mode == 'startup') {
+                    mode = 'none';
+                }
+            });
+        }
+
+        var flag = 0;
+        last_x = 0;
+        last_y = 1;
+
+        var click_thing = document;
+        $(click_thing).mousedown(function(e){
+            last_x = e.screenX;
+            last_y = e.screenY;
+            flag = 0;
+        });
+        $(click_thing).mousemove(function(e){
+            flag = 1;
+        });
+        $(click_thing).mouseup(function(e){
+            var dx = e.screenX - last_x;
+            var dy = e.screenY - last_y;
+            if (flag==1 && dx*dx + dy*dy > 100){
+                return;
+            } else {
+                on_click(e);
+            }
+        });
+
+        $.ajax({
+            type: 'POST',
+            url: '',
+            data: {},
+            dataType: 'JSON',
+        }).done(function(data) {
+            business_data = data['businesses'];
+            roads_by_speed_limit = data['roads'];
+            setInterval(new_draw_stuff, 3000);
+        });
+
+	</script>
+</body>
+</html>
