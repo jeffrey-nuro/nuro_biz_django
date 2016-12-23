@@ -82,7 +82,6 @@
 	<script>
         var max_business_display_num = 20000;
         var business_speed_threshold = -1;
-        //var business_bounds = [37.36, -122.1, 37.4, -122.03];
         var business_bounds = [37.36, -122.16, 37.43, -122.02];
         var mode = 'startup';
         var boundary_type = 'none';
@@ -120,18 +119,6 @@
 
         var wayline_displays = [];
         var wayline_decorators = [];
-        /*
-        var wayline_dec_styles = [
-            {offset: 0, repeat: 400, symbol: L.Symbol.arrowHead({pixelSize: 8, pathOptions: {fillOpacity: 0.5, weight: 0}})},
-            {offset: 0, repeat: 200, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'purple'}})},
-            {offset: 0, repeat: 200, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'yellow'}})},
-            {offset: 0, repeat: 200, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'white'}})},
-            {offset: 0, repeat: 200, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'black'}})},
-            {offset: 0, repeat: 100, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'green'}})},
-            {offset: 0, repeat: 100, symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 0.5, weight: 0, color:'pink'}})},
-        ];
-        */
-
         var wayline_styles = [
             {opacity: 1},
             {opacity: 1, color: 'gray'},
