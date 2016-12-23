@@ -25,7 +25,7 @@ def index(request):
 
         print roads_by_speed.keys()
         road_data = [[]]
-        #road_data.append(flatten([roads_by_speed[i] for i in ['none']])[:1000])
+        road_data.append(flatten([roads_by_speed[i] for i in ['none']])[:1000])
         road_data.append(flatten([roads_by_speed[i] for i in ['5 mph', '10 mph', '15 mph', '20 mph', '25 mph']]))
         road_data.append(flatten([roads_by_speed[i] for i in ['30 mph', '35 mph']]))
         road_data.append(flatten([roads_by_speed[i] for i in ['40 mph', '45 mph']]))

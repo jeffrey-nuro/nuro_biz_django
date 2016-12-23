@@ -144,7 +144,7 @@ def process_ways():
         node_dict_db[nid] = wp
 
     count = 0
-    for way in good_ways:
+    for way in all_ways:
         count += 1
         if count % 10000 == 0:
             print 'ways', count
@@ -187,5 +187,5 @@ def process_speed_limits():
 
 if __name__ == '__main__':
     #make_map_data()
-    #process_businesses()
     process_ways()
+    process_businesses()
