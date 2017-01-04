@@ -1,16 +1,28 @@
 import cPickle as pickle
 import json
 import math
+import os
 from random import shuffle
 
 from osmread import parse_file, Way, Node
 
 inf = 1e20
-map_name = 'business_dashboard/static/full_mtv.osm'
-map_file_name = 'business_dashboard/static/node_dict_and_good_ways.p'
-residential_file_name = 'business_dashboard/static/residential_waypoints.p'
-orig_business_file_name = 'business_dashboard/static/business_data_yelp_format.p'
-business_file_name = 'business_dashboard/static/business_data.p'
+base_dir = 'business_dashboard/static/data'
+
+def get_osm_map_name(zone):
+    return os.path.join(base_dir, zone, 'map.osm')
+
+def get_output_map_name(zone):
+    return os.path.join(base_dir, zone, 'node_dict_and_good_ways.p')
+
+def get_residential_file_name(zone):
+    return os.path.join(base_dir, zone, 'residential_waypoints.p')
+
+def get_orig_business_file_name(zone):
+    return os.path.join(base_dir, zone, 'business_data_yelp_format.p')
+
+def get_business_file_name(zone):
+    return os.path.join(base_dir, zone, 'business_data.p')
 
 def latlngdist(wp1, wp2):
     lat1, lon1 = wp1
@@ -25,14 +37,12 @@ def latlngdist(wp1, wp2):
     d = radius * c
     return d
 
-def make_node_dict():
+def make_node_dict(zone):
     node_dict = {}
-    for node in parse_file(map_name):
+    for node in parse_file(get_osm_map_name(zone)):
         if isinstance(node, Node):
             node_dict[node.id] = (node.lat, node.lon)
     return node_dict
-
-# TODO: if very inaccurate, use latlng->xy converter first
 
 # returns distance to line, fraction along line, and point on line
 def point_to_segment(p, p1, p2):
@@ -72,12 +82,12 @@ def point_to_way(p, way, node_dict):
                 closest_point = perp_p
     return closest_dist, closest_point
 
-def get_business_data():
-    with open(business_file_name, 'rb') as f:
+def get_business_data(zone):
+    with open(get_business_file_name(zone), 'rb') as f:
         return pickle.load(f)
 
-def save_business_data():
-    with open(orig_business_file_name, 'rb') as f:
+def save_business_data(zone):
+    with open(get_orig_business_file_name(zone), 'rb') as f:
         responses = pickle.load(f)
 
     data = []
@@ -90,16 +100,16 @@ def save_business_data():
             lat, lng = loc.latitude, loc.longitude
             data.append((name, lat, lng, i.eat24_url))
 
-    with open(business_file_name, 'wb') as f:
+    with open(get_business_file_name(zone), 'wb') as f:
         pickle.dump(data, f)
 
-def make_map_data():
+def make_map_data(zone):
     node_dict = make_node_dict()
     all_ways = []
     good_ways = []
     bad_count = 0
     residential_waypoints = []
-    for entity in parse_file(map_name):
+    for entity in parse_file(get_osm_map_name(zone)):
         #if isinstance(entity, Way) and 'maxspeed' in entity.tags:
         if isinstance(entity, Way):
             if len(entity.nodes) < 2: continue
@@ -110,14 +120,14 @@ def make_map_data():
             for nid in entity.nodes:
                 residential_waypoints.append(node_dict[nid])
 
-    with open(map_file_name, 'wb') as f:
+    with open(get_ouput_map_name(zone), 'wb') as f:
         pickle.dump((node_dict, good_ways, all_ways), f)
 
-    with open(residential_file_name, 'wb') as f:
+    with open(get_residential_file_name(zone), 'wb') as f:
         pickle.dump(residential_waypoints, f)
 
-def load_map_data():
-    with open(map_file_name, 'rb') as f:
+def load_map_data(zone):
+    with open(get_output_map_name(zone), 'rb') as f:
         node_dict, good_ways, all_ways = pickle.load(f)
     return node_dict, good_ways, all_ways
 
@@ -173,7 +183,10 @@ def process_speed_limits():
         f.write('var roads_by_speed_limit = ' + json.dumps(output_arrays))
 
 if __name__ == '__main__':
-    save_business_data()
-    #make_map_data()
-    #process_businesses()
-    #process_speed_limits()
+    pass
+
+    # To generate data for a new region, use these functions:
+    # save_business_data()
+    # make_map_data()
+    # process_businesses()
+    # process_speed_limits()

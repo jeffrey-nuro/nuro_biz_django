@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'business_dashboard'))
 from router import Router
 import sim
-router = Router(False)
+router = Router('mtv', False)
 
 @csrf_exempt
 def route(request):

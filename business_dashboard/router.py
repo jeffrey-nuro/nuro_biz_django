@@ -7,8 +7,10 @@ lldist = biz_tools.latlngdist
 inf = 1e20
 
 class Router:
-    def __init__(self, debug):
+    def __init__(self, zone, debug):
+        self.load_map(zone, debug)
 
+    def load_map(self, zone, debug):
         start_time = time.time()
         def way_speed(way):
             if 'maxspeed' not in way.tags: return 25.
@@ -16,7 +18,7 @@ class Router:
                 return float(way.tags['maxspeed'].strip().split(' ')[0])
 
         self.heuristic_max_speed = 70.
-        self.node_dict, good_ways, all_ways = biz_tools.load_map_data()
+        self.node_dict, good_ways, all_ways = biz_tools.load_map_data(zone)
         self.good_ways = all_ways
         self.good_nids = {}
         self.edges = {}
@@ -41,9 +43,8 @@ class Router:
             speed_limit = way_speed(way)
             for nid in way.nodes[1:]:
                 new_point = self.node_dict[nid]
-                # We use time (sec) as our routing distance metric, but store the distance and compute time later
-                # cur_dist += lldist(last_point, new_point) / min(way_speed(way), robot_max_speed) * 3600 * \
-                #         traffic_multiplier
+                # We use time (sec) as our routing distance metric,
+                # but store the distance and compute time later
                 cur_dist += lldist(last_point, new_point)
 
                 last_point = new_point

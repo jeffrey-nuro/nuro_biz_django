@@ -9,8 +9,9 @@ import random
 import biz_tools
 from router import Router
 
-residential_file = 'business_dashboard/static/residential_waypoints.p'
 inf = 1e20
+zone = 'mtv'
+residential_file = biz_tools.get_residential_file_name(zone)
 
 class Robot:
     def __init__(self, avail_time, avail_loc):
@@ -127,13 +128,14 @@ def setup_sim(params):
     with open(residential_file, 'rb') as f:
         res_waypoints = pickle.load(f)
 
-    data = biz_tools.get_business_data()
+    data = biz_tools.get_business_data(zone)
     business_locs = [(i[1], i[2]) for i in data]
     requests = []
     for i in range(params['num_requests']):
         for tries in range(10):
             end_loc = random.choice(res_waypoints)
-            good_businesses = [b for b in business_locs if biz_tools.latlngdist(b, end_loc) < params['business_radius_mi']]
+            good_businesses = [b for b in business_locs \
+                    if biz_tools.latlngdist(b, end_loc) < params['business_radius_mi']]
             if good_businesses != []: break
         if good_businesses == []: raise ValueError('No good businesses in range!')
         start_loc = random.choice(good_businesses)
