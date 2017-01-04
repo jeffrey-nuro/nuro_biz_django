@@ -1,16 +1,17 @@
 import biz_tools
 import json
 import time
+import logging
 from heap import Heap
 from convex_hull import convexHull
 lldist = biz_tools.latlngdist
 inf = 1e20
 
 class Router:
-    def __init__(self, zone, debug):
-        self.load_map(zone, debug)
+    def __init__(self, zone):
+        self.load_map(zone)
 
-    def load_map(self, zone, debug):
+    def load_map(self, zone):
         start_time = time.time()
         def way_speed(way):
             if 'maxspeed' not in way.tags: return 25.
@@ -60,9 +61,7 @@ class Router:
                     cur_dist = 0.
                     cur_nid = nid
 
-        self.debug = debug
-        if debug:
-            print 'init took %s seconds' % (time.time() - start_time)
+        logging.info('init took %s seconds', time.time() - start_time)
 
     def same_point(p1, p2):
         eps = 1e-9
@@ -128,7 +127,6 @@ class Router:
     # returns distance, [node sequence]
     def shortest_path(self, n1, n2, params):
         assert n1 in self.good_nids and n2 in self.good_nids
-        print n1, n2
         s = {nid: inf for nid in self.good_nids}
         s_heap = Heap()
         s[n1] = 0.
@@ -167,8 +165,8 @@ class Router:
             if min_s is None or min_s > radius: break
             reachable_nids.append(best_nid)
 
-        if self.debug:
-            print 'reachable region within', radius, 'seconds found in time', time.time() - start_time
+        logging.info('reachable region within %s seconds found in time %s',
+                radius, time.time() - start_time)
 
         all_points = [self.node_dict[i] for i in reachable_nids]
         hull = convexHull(all_points) if len(all_points) > 2 else []
@@ -179,8 +177,7 @@ class Router:
         n1, n2 = self.nearest_nid(ll1), self.nearest_nid(ll2)
         dist, seq = self.shortest_path(n1, n2, params)
         lls = [] if seq == [] else [ll1] + [self.node_dict[i] for i in seq] + [ll2]
-        if self.debug:
-            print 'route from %s to %s took %s seconds' % (n1, n2, time.time() - start_time)
+        logging.info('route from %s to %s took %s seconds', n1, n2, time.time() - start_time)
         return dist, lls
 
 if __name__ == '__main__':
@@ -189,6 +186,6 @@ if __name__ == '__main__':
             'num_requests': 100, 'business_radius_mi': 2, 'robot_start': 'random',
             'robot_max_speed_mph': 50., 'road_speed_thresh_mph': 50, 'traffic_multiplier': 1.}
     lls, hull = router.reachable_region([37.390729233381265, -122.10464061596184], 180, params)
-    print lls
+    logging.info(lls)
     #with open('static/js/debug_points.js', 'w') as f:
     #    f.write('var debug_points = ' + json.dumps(lls))

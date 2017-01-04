@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import logging
 
 from django.shortcuts import render
 from django.http import HttpResponse
@@ -9,7 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'business_dashboard'))
 from router import Router
 import sim
-router = Router('mtv', False)
+router = Router('mtv')
 
 @csrf_exempt
 def route(request):
@@ -25,7 +26,7 @@ def route(request):
         params = {'road_speed_thresh_mph': speed_thresh,
                 'traffic_multiplier': traffic_multiplier}
         dist, lls = router.route(route_latlngs[0], route_latlngs[1], params)
-        print dist, lls
+        logging.info('route: %s %s' % (dist, lls))
         return HttpResponse(
             json.dumps({'route': lls, 'dist': dist}),
             content_type="application/json",
@@ -57,7 +58,7 @@ def simulate(request):
     if request.method == 'POST':
         post_data = request.POST
         params = {i: post_data[i] for i in post_data}
-        print params
+        logging.info(params)
         for i in ['num_robots', 'num_requests']:
             params[i] = int(params[i])
         for i in ['business_prep_time_min', 'customer_pickup_time_min', 'business_radius_mi',

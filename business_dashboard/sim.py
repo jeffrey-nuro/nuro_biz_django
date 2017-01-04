@@ -5,6 +5,7 @@ import cPickle as pickle
 import json
 import math
 import random
+import logging
 
 import biz_tools
 from router import Router
@@ -104,8 +105,9 @@ def run_sim(request_list, params, router):
         r = robots[r_ind]
         arrive_time = robot_start_time + get_travel_time_osm(r.avail_loc, request.start_loc, params, router)
         if ind % 50 == 0:
-            print 'request number', ind, ':', request
-            print 'arrive time estimate', arrive_time_heuristic, 'actual arrive time', arrive_time
+            logging.info('request number %s: %s', ind, request)
+            logging.info('arrive time estimate: %s, actual arrive time: %s',
+                    arrive_time_heuristic, arrive_time)
         leave_time = max(arrive_time, request.time + start_wait)
         travel_time = get_travel_time_osm(request.start_loc, request.end_loc, params, router)
         final_arrive_time = leave_time + travel_time
@@ -152,11 +154,6 @@ def summarize_stats(request_stats, other_stats, params):
     agg_stats = {'wait_time': column_mean(a, 0) / 60, 'pickup_time': column_mean(a, 1) / 60,
             'dropoff_time': column_mean(a, 2) / 60, 'required_time': column_mean(a, 3) / 60,
             'service_ratio': other_stats['service_ratio']}
-    print 'average wait time (min)', agg_stats['wait_time']
-    print 'average robot pickup time per trip (min)', agg_stats['pickup_time']
-    print 'average robot dropoff time per trip (min)', agg_stats['dropoff_time']
-    print 'average required travel time per trip (min)', agg_stats['required_time']
-    print 'service ratio', other_stats['service_ratio']
     return agg_stats
 
 def sim_test():
@@ -166,10 +163,9 @@ def sim_test():
     stats = run_sim(request_list, params)
     assert get_travel_time == get_travel_time_dummy
     assert all([x.__repr__() == y.__repr__() for (x,y) in zip(stats, [RequestStats(2.,2.,1.), RequestStats(3.,2.,1.)])])
-    print stats
 
 def sim_end_to_end(params, router):
-    print 'running sim with params', params
+    logging.info('running sim with params %s', params)
     requests = setup_sim(params)
     request_stats, other_stats, robot_logs = run_sim(requests, params, router)
     agg_stats = summarize_stats(request_stats, other_stats, params)
