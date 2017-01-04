@@ -42,7 +42,7 @@ function submit_sim() {
 
     $.ajax({
         type: 'POST',
-        url: '/',
+        url: 'simulate',
         data: sim_params,
         dataType: 'JSON',
     }).done(function(data) {

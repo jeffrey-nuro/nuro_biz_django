@@ -35,7 +35,7 @@ function finish_reachable_region() {
 
     $.ajax({
         type: 'POST',
-        url: '/',
+        url: 'reachable_region',
         data: post_data,
         dataType: 'JSON',
     }).done(function(data) {
@@ -55,7 +55,7 @@ function finish_find_route() {
         'traffic_multiplier': $('#traffic_multiplier_textarea').val()};
     $.ajax({
         type: 'POST',
-        url: '/',
+        url: 'route',
         data: post_data,
         dataType: 'JSON',
     }).done(function(data) {
