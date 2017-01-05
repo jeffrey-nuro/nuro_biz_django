@@ -27,7 +27,7 @@ class Router:
                 return float(way.tags['maxspeed'].strip().split(' ')[0])
 
         self.heuristic_max_speed = 70.
-        self.node_dict, good_ways, all_ways = biz_tools._load_map_data(zone)
+        self.node_dict, good_ways, all_ways = biz_tools.load_map_data(zone)
         self.good_ways = all_ways
         self.good_nids = {}
         self.edges = {}

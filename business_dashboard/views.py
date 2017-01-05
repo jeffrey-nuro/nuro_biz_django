@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'business_dashboard')
 from router import Router
 import sim
 router = Router('mtv')
+speed_limit_buckets = [65, 45, 35, 25]
 
 @csrf_exempt
 def route(request):
@@ -41,7 +42,7 @@ def reachable_region(request):
         latlngs = json.loads(post_data['latlngs'])
         radius = float(post_data['radius'].strip())
         all_points_arr, all_hulls_arr = [], []
-        for speed_thresh in [65, 45, 35, 25]:
+        for speed_thresh in speed_limit_buckets:
             points_arr, hull_arr = [], []
             for latlng in latlngs:
                 params = {'road_speed_thresh_mph': speed_thresh, 'traffic_multiplier': 1.5}
