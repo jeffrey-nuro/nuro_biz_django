@@ -88,6 +88,27 @@ def robot_logs_to_js(robot_logs):
         f.write('var robot_logs = ' + json.dumps(lines))
 
 def run_sim(request_list, params, router):
+    """ Runs simulation by going through requests in time order,
+    and using the robot that could get there soonest.
+
+    Args:
+        request_list: a list of requests to service
+        params: user defined inputs. Dictionary with the following keys:
+            num_robots
+            business_prep_time_min
+            customer_pickup_time_min
+            business_radius_mi: radius from which we sample a business for each customer
+            robot_start: 'random' for random start locations
+            robot_max_speed_mph
+            road_speed_thresh_mph
+            traffic_multiplier
+
+    Returns:
+        request_stats: a list of RequestStats, one for each serviced request
+        other_stats: miscellaneous stats
+        robot_logs: log of robot movements
+    """
+
     num_robots = params['num_robots']
     start_wait = params['business_prep_time_min'] * 60
     end_wait = params['customer_pickup_time_min'] * 60
@@ -127,6 +148,12 @@ def run_sim(request_list, params, router):
     return request_stats, other_stats, robot_logs
 
 def setup_sim(params):
+    """Sets up simulation by generating the requests.
+
+    Args: params is a dictionary of user inputs, as discussed above.
+    Returns: a time-sorted list of requests
+    """
+
     with open(residential_file, 'rb') as f:
         res_waypoints = pickle.load(f)
 

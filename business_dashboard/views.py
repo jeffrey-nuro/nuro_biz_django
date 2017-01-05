@@ -14,6 +14,7 @@ router = Router('mtv')
 
 @csrf_exempt
 def route(request):
+    """Handles post request for shortest path computation"""
     if request.method == 'POST':
         post_data = request.POST
         speed_thresh = float(post_data['speed_thresh'].strip())
@@ -34,6 +35,7 @@ def route(request):
 
 @csrf_exempt
 def reachable_region(request):
+    """Handles post request for reachable region computation"""
     if request.method == 'POST':
         post_data = request.POST
         latlngs = json.loads(post_data['latlngs'])
@@ -55,6 +57,7 @@ def reachable_region(request):
 
 @csrf_exempt
 def simulate(request):
+    """Handles post request for running a simulation"""
     if request.method == 'POST':
         post_data = request.POST
         params = {i: post_data[i] for i in post_data}

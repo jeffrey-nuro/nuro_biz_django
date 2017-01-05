@@ -4,13 +4,28 @@
 
 import cPickle as pickle
 import sys
+import gflags
+from google.apputils import app
 
 from yelp.client import Client
 from yelp.oauth1_authenticator import Oauth1Authenticator
 
 save_file_name = 'business_data_yelp_format.p'
 
+gflags.DEFINE_float('start_lat', None, 'start_lat')
+gflags.DEFINE_float('start_lng', None, 'start_lng')
+gflags.DEFINE_float('end_lat', None, 'end_lat')
+gflags.DEFINE_float('end_lng', None, 'end_lng')
+
+FLAGS = gflags.FLAGS
+
 def gather_data(start_lat, start_lng, end_lat, end_lng):
+    """Gathers yelp data from within a bounding box, and writes to pickle file.
+
+    Args:
+        [start_lat, start_lng, end_lat, end_lng]: the specified box
+    """
+
     print 'gathering yelp data for region:', start_lat, start_lng, end_lat, end_lng
     auth = Oauth1Authenticator(
         consumer_key='t_8t2Z_lEv5ViI1WsIvUBQ',
@@ -53,15 +68,15 @@ def gather_data(start_lat, start_lng, end_lat, end_lng):
     with open(save_file_name, 'wb') as f:
         pickle.dump(responses, f)
 
-if __name__ == '__main__':
-    if len(sys.argv) != 5:
-        print 'usage: python get_yelp_data.py start_lat start_lng end_lat end_lng'
-        sys.exit()
-
+def main(argv):
     # Example regions:
     # MTV: 37.36 -122.16 37.43 -122.02
-    gather_data(*(map(float, sys.argv[1:])))
+    print FLAGS.start_lat
+    gather_data(FLAGS.start_lat, FLAGS.start_lng, FLAGS.end_lat, FLAGS.end_lng)
     with open(save_file_name, 'rb') as f:
         responses = pickle.load(f)
         for res in responses:
             print len(res.businesses)
+
+if __name__ == '__main__':
+    app.run()

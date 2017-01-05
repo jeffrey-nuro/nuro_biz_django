@@ -8,10 +8,18 @@ lldist = biz_tools.latlngdist
 inf = 1e20
 
 class Router:
-    def __init__(self, zone):
-        self.load_map(zone)
+    """This class is responsible for loading an OSM map, and handling queries
+    for shortest path and reachable region."""
 
-    def load_map(self, zone):
+    def __init__(self, zone):
+        self._load_map(zone)
+
+    def _load_map(self, zone):
+        """Loads an OSM map into memory
+
+        params:
+            zone: a string describing the map file to use (for now must be mtv)
+        """
         start_time = time.time()
         def way_speed(way):
             if 'maxspeed' not in way.tags: return 25.
@@ -19,7 +27,7 @@ class Router:
                 return float(way.tags['maxspeed'].strip().split(' ')[0])
 
         self.heuristic_max_speed = 70.
-        self.node_dict, good_ways, all_ways = biz_tools.load_map_data(zone)
+        self.node_dict, good_ways, all_ways = biz_tools._load_map_data(zone)
         self.good_ways = all_ways
         self.good_nids = {}
         self.edges = {}
@@ -63,11 +71,7 @@ class Router:
 
         logging.info('init took %s seconds', time.time() - start_time)
 
-    def same_point(p1, p2):
-        eps = 1e-9
-        return abs(p1[0] - p1[1]) < eps and abs(p2[0] - p2[1]) < eps
-
-    def nearest_nid(self, ll):
+    def _nearest_nid(self, ll):
         min_dist = inf
         best_nid = None
         for nid in self.good_nids:
@@ -77,17 +81,21 @@ class Router:
                 best_nid = nid
         return best_nid
 
-    # We abstract this so that we can use similar logic for shortest path and region finding
-    #
-    # Args:
-    # s_heap is a min_heap of (distance_guess, node)
-    # s is a dictionary of distance_guess
-    # prev is previous node dict for shortest path reconstruction
-    # params are speed limit parameters
-    # heuristic dest is goal for shortest path, used for an A*-like heuristic
-    #
-    # Returns: next (distance, node) marked for certain in dijkstra's algorithm
-    def dijkstra_step(self, s_heap, s, vis, prev, params, heuristic_dest):
+    def _dijkstra_step(self, s_heap, s, vis, prev, params, heuristic_dest):
+        """
+        We abstract this so that we can use similar logic for shortest path and region finding
+
+        Args:
+            s_heap: a min_heap of (distance_guess, node)
+            s: a dictionary of distance_guess
+            prev: previous node dict for shortest path reconstruction
+            params: speed limit parameters
+            heuristic_dest: goal for shortest path, used for an A*-like heuristic
+
+        Returns:
+            next (distance, node) marked for certain in dijkstra's algorithm
+        """
+
         speed_thresh = params['road_speed_thresh_mph'] + 1e-5
         robot_max_speed = params.get('robot_max_speed_mph')
 
@@ -124,8 +132,16 @@ class Router:
 
         return min_s, best_nid
 
-    # returns distance, [node sequence]
-    def shortest_path(self, n1, n2, params):
+    def _shortest_path(self, n1, n2, params):
+        """Standard A* algorithm, with min_heap for ElogV ~ V run time
+            Args:
+                n1: nid of starting location
+                n2: nid of ending location
+                params: speed limit parameters
+
+            Returns: distance, [node sequence]
+        """
+
         assert n1 in self.good_nids and n2 in self.good_nids
         s = {nid: inf for nid in self.good_nids}
         s_heap = Heap()
@@ -134,7 +150,7 @@ class Router:
         vis = {}
         prev = {n1: None}
         while n2 not in vis:
-            min_s, best_nid = self.dijkstra_step(s_heap, s, vis, prev, params, n2)
+            min_s, best_nid = self._dijkstra_step(s_heap, s, vis, prev, params, n2)
             if best_nid is None:
                 break
 
@@ -149,9 +165,19 @@ class Router:
         traffic_multiplier = params['traffic_multiplier']
         return s[n2] * traffic_multiplier, node_seq[::-1]
 
-    # Returns the set of reachable and their convex hull
     def reachable_region(self, ll, radius, params):
-        n1 = self.nearest_nid(ll)
+        """Computes set of reachable points and their convex hull
+
+        Args:
+            ll: user-defined source
+            radius: shortest path distance (in seconds)
+            params: speed limit params
+
+        Returns:
+            [reachable points for each speed limit], [convex hull for each speed limit]
+        """
+
+        n1 = self._nearest_nid(ll)
         start_time = time.time()
         reachable_nids = []
         s = {nid: inf for nid in self.good_nids}
@@ -161,7 +187,7 @@ class Router:
         vis = {}
         prev = {n1: None}
         while True:
-            min_s, best_nid = self.dijkstra_step(s_heap, s, vis, prev, params, None)
+            min_s, best_nid = self._dijkstra_step(s_heap, s, vis, prev, params, None)
             if min_s is None or min_s > radius: break
             reachable_nids.append(best_nid)
 
@@ -173,9 +199,10 @@ class Router:
         return all_points, hull
 
     def route(self, ll1, ll2, params):
+        """Computes shortest path between ll1 and ll2"""
         start_time = time.time()
-        n1, n2 = self.nearest_nid(ll1), self.nearest_nid(ll2)
-        dist, seq = self.shortest_path(n1, n2, params)
+        n1, n2 = self._nearest_nid(ll1), self._nearest_nid(ll2)
+        dist, seq = self._shortest_path(n1, n2, params)
         lls = [] if seq == [] else [ll1] + [self.node_dict[i] for i in seq] + [ll2]
         logging.info('route from %s to %s took %s seconds', n1, n2, time.time() - start_time)
         return dist, lls
